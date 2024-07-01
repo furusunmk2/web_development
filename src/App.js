@@ -35,7 +35,7 @@ function App() {
 
   const handleLogin = async () => {
     try {
-      const response = await axios.post('http://localhost:5000/login', { username, password });
+      const response = await axios.post('http://localhost:3001/login', { username, password });
       if (response.data && response.status === 200) {
         setLoggedIn(true);
       } else {

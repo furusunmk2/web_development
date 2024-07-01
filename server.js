@@ -1,43 +1,70 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const mysql2 = require('mysql2');
+const bcrypt = require('bcrypt');
 
 const app = express();
-const port = 5000;
+const port = 3001;
 
 app.use(bodyParser.json());
 app.use(cors());
 
-const users = [
-  { username: 'user', password: 'password' } // テスト用のユーザー
-];
+const db = mysql2.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'inventory_db2'
+});
+db.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to database');
+});
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  const user = users.find(u => u.username === username && u.password === password);
-  if (user) {
-    res.status(200).json({ message: 'Login successful' });
-  } else {
-    res.status(401).json({ message: 'Invalid username or password' });
-  }
+  const sql = 'SELECT * FROM users WHERE username = ?';
+  db.query(sql, [username], (err, result) => {
+    if (err) {
+      return res.status(500).send('Server error');
+    }
+    if (result.length > 0) {
+      const user = result[0];
+      bcrypt.compare(password, user.password, (err, isMatch) => {
+        if (err) {
+          return res.status(500).send('Server error');
+        }
+        if (isMatch) {
+          return res.status(200).send('Login successful');
+        } else {
+          return res.status(401).send('Invalid credentials');
+          
+        }
+      });
+    } else {
+      return res.status(401).send('Invalid credentials');
+    }
+  });
 });
 
 app.post('/register', (req, res) => {
   const { username, password } = req.body;
-  console.log('Received register request:', req.body);
-  if (!username || !password) {
-    console.log('Username or password missing');
-    return res.status(400).json({ message: 'Username and password are required' });
-  }
-  const userExists = users.some(u => u.username === username);
-  if (userExists) {
-    console.log('User already exists');
-    return res.status(400).json({ message: 'User already exists' });
-  } else {
-    users.push({ username, password });
-    console.log('User registered successfully:', { username, password });
-    res.status(200).json({ message: 'Registration successful' });
-  }
+  const checkUserSql = 'SELECT * FROM users WHERE username = ?';
+  db.query(checkUserSql, [username], (err, result) => {
+    if (err) throw err;
+    if (result.length > 0) {
+        res.status(400).send('Username already exists');
+    } else {
+        bcrypt.hash(password, 10, (err, hash) => {
+            if (err) throw err;
+            const insertUserSql = 'INSERT INTO users (username, password) VALUES (?, ?)';
+            db.query(insertUserSql, [username, hash], (err, result) => {
+                if (err) throw err;
+                res.send('User registered');
+            });
+        });
+    }
+});
 });
 
 app.listen(port, () => {
