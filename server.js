@@ -67,6 +67,83 @@ app.post('/register', (req, res) => {
 });
 });
 
+// Add a new list
+app.post('/addList', (req, res) => {
+  const { listName } = req.body;
+  const query = 'INSERT INTO inventories (name, created_at, updated_at) VALUES (?, NOW(), NOW())';
+  db.query(query, [listName], (err, result) => {
+    if (err) throw err;
+    res.status(200).send({ message: 'List added successfully' });
+    });
+});
+
+
+// Get user lists
+app.get('/lists', (req, res) => {
+  const { username } = req.query;
+  const query = `
+    SELECT inventories.id, inventories.name 
+    FROM inventories 
+    JOIN user_inventories ON inventories.id = user_inventories.inventory_id 
+    JOIN users ON users.id = user_inventories.user_id 
+    WHERE users.username = ?
+  `;
+  db.query(query, [username], (err, results) => {
+    if (err) throw err;
+    res.status(200).send(results);
+  });
+});
+
+// Add item to list
+app.post('/addItem', (req, res) => {
+  const { listId, itemName, quantity } = req.body;
+  const query = 'INSERT INTO products (inventory_id, name, stock, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())';
+  db.query(query, [listId, itemName, quantity], (err) => {
+    if (err) throw err;
+    res.status(200).send({ message: 'Item added successfully' });
+  });
+});
+
+// Get items in a list
+app.get('/items', (req, res) => {
+  const { listId } = req.query;
+  const query = 'SELECT * FROM products WHERE inventory_id = ?';
+  db.query(query, [listId], (err, results) => {
+    if (err) throw err;
+    res.status(200).send(results);
+  });
+});
+
+// Update item quantity
+app.put('/updateItem', (req, res) => {
+  const { itemId, quantity } = req.body;
+  const query = 'UPDATE products SET stock = ?, updated_at = NOW() WHERE id = ?';
+  db.query(query, [quantity, itemId], (err) => {
+    if (err) throw err;
+    res.status(200).send({ message: 'Item updated successfully' });
+  });
+});
+
+// Delete item from list
+app.delete('/deleteItem', (req, res) => {
+  const { itemId } = req.body;
+  const query = 'DELETE FROM products WHERE id = ?';
+  db.query(query, [itemId], (err) => {
+    if (err) throw err;
+    res.status(200).send({ message: 'Item deleted successfully' });
+  });
+});
+
+// Delete list
+app.delete('/deleteList', (req, res) => {
+  const { listId } = req.body;
+  const query = 'DELETE FROM inventories WHERE id = ?';
+  db.query(query, [listId], (err) => {
+    if (err) throw err;
+    res.status(200).send({ message: 'List deleted successfully' });
+  });
+});
+
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });

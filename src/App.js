@@ -46,15 +46,17 @@ function App() {
     }
   };
 
-  const handleAddList = () => {
+  const handleAddList = async () => {
     if (newListName && loggedIn) {
-      const user = username;
-      if (!userLists[user]) {
-        userLists[user] = {};
+      try {
+        const response = await axios.post('http://localhost:3001/addList', { username, listName: newListName });
+        if (response.data) {
+          setUserLists({ ...userLists, [newListName]: [] });
+          setNewListName('');
+        }
+      } catch (error) {
+        console.error('Error adding list:', error.response ? error.response.data : error.message);
       }
-      userLists[user][newListName] = [];
-      setUserLists({ ...userLists });
-      setNewListName('');
     }
   };
 
