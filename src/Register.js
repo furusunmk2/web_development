@@ -19,7 +19,7 @@ function Register() {
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/register', { username, password });
+      const response = await axios.post('http://localhost:3001/register', { username, password });
       console.log('Registration response:', response);
       if (response.data && response.status === 200) {
         setMessage('登録成功');
