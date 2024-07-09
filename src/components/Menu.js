@@ -1,3 +1,5 @@
+//menu.js
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TextField, Button, IconButton, createTheme, ThemeProvider } from '@mui/material';
@@ -13,7 +15,6 @@ const menuTheme = createTheme({
     },
   },
 });
-
 
 function Menu({ lists, currentList, setCurrentList, newListName, setNewListName, handleAddList, handleDeleteList }) {
   const [showForm, setShowForm] = useState(false);
@@ -36,8 +37,8 @@ function Menu({ lists, currentList, setCurrentList, newListName, setNewListName,
     setIsNewListSelected(false); // NewList選択状態を解除
   };
 
-  const handleListClick = (list) => {
-    setCurrentList(list);
+  const handleListClick = (listId) => {
+    setCurrentList(listId);
     setShowForm(false); // リストを選択した際にフォームを非表示にする
     setIsNewListSelected(false); // NewList選択状態を解除
   };
@@ -47,19 +48,19 @@ function Menu({ lists, currentList, setCurrentList, newListName, setNewListName,
       setShowForm(false); // 新規リスト作成をキャンセル
     }
     setEditIndex(index);
-    setEditedName(lists[index]);
+    setEditedName(lists[index].name);
   };
 
   const handleRenameItem = (index) => {
     // リスト名の変更ロジックを追加
-    lists[index] = editedName;
+    lists[index].name = editedName;
     setEditIndex(-1);
   };
 
   const handleDeleteItem = (index) => {
     // 確認画面を表示
     if (window.confirm('このリストを削除しますか？')) {
-      handleDeleteList(lists[index]);
+      handleDeleteList(lists[index].id);
       setEditIndex(-1);
     }
   };
@@ -85,7 +86,7 @@ function Menu({ lists, currentList, setCurrentList, newListName, setNewListName,
   return (
     <ThemeProvider theme={menuTheme}>
       <div style={styles.menuContainer}>
-        <h2 style={styles.menuTitle }>Menu</h2>
+        <h2 style={styles.menuTitle}>Menu</h2>
         <ul style={styles.menuList}>
           <li>
             <button 
@@ -100,18 +101,18 @@ function Menu({ lists, currentList, setCurrentList, newListName, setNewListName,
             </button>
           </li>
           {lists.map((list, index) => (
-            <li key={index} style={styles.menuListItem}>
+            <li key={list.id} style={styles.menuListItem}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                 <Link
                   size="small"
                   to="/"
-                  onClick={() => handleListClick(list)}
+                  onClick={() => handleListClick(list.id)}
                   style={{
                     ...styles.menuLink,
-                    ...(currentList === list && styles.menuLinkActive)
+                    ...(currentList === list.id && styles.menuLinkActive)
                   }}
                 >
-                  {list}
+                  {list.name}
                 </Link>
                 <div style={styles.actionButtons}>
                   <IconButton style={{ color:'#060f3e' }} edge="end" size="small" aria-label="edit" onClick={() => handleEditItem(index)}>
@@ -214,21 +215,17 @@ const styles = {
   actionButtons: {
     display: 'flex',
     gap: '0.5em',
-    
-    
   },
   editForm: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-start',
-
   },
   buttonGroup: {
     display: 'flex',
     flexDirection: 'row',
   },
-
-  EditIcon:{
+  EditIcon: {
     color:'#060f3e',
   },
 };

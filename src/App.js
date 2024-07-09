@@ -1,5 +1,6 @@
 // App.js
-import React, { useState } from 'react';
+// App.js
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Container, TextField, List, ListItem, ListItemText, IconButton, Switch, CssBaseline } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, AccountCircle } from '@mui/icons-material';
@@ -24,6 +25,7 @@ const theme = createTheme({
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [userId, setUserId] = useState(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [userLists, setUserLists] = useState({});
@@ -33,11 +35,54 @@ function App() {
   const [editIndex, setEditIndex] = useState(-1);
   const [editedName, setEditedName] = useState('');
 
+  useEffect(() => {
+    if (loggedIn) {
+      fetchUserInventories();
+    }
+  }, [loggedIn]);
+
+  useEffect(() => {
+    if (currentList) {
+      fetchListItems(currentList);
+    }
+  }, [currentList]);
+
+  const fetchUserInventories = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/inventories', { params: { userId } });
+      if (response.data) {
+        const lists = response.data.reduce((acc, list) => {
+          acc[list.id] = { name: list.name, items: [] };
+          return acc;
+        }, {});
+        setUserLists(lists);
+      }
+    } catch (error) {
+      console.error('Error fetching inventories:', error.response ? error.response.data : error.message);
+    }
+  };
+
+  const fetchListItems = async (listId) => {
+    try {
+      const response = await axios.get('http://localhost:3001/products', { params: { listId } });
+      if (response.data) {
+        setUserLists(prevState => ({
+          ...prevState,
+          [listId]: { ...prevState[listId], items: response.data }
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching list items:', error.response ? error.response.data : error.message);
+    }
+  };
+
   const handleLogin = async () => {
     try {
       const response = await axios.post('http://localhost:3001/login', { username, password });
       if (response.data && response.status === 200) {
+        setUserId(response.data.userId);
         setLoggedIn(true);
+        fetchUserInventories(); // ユーザーのインベントリを取得
       } else {
         console.error('Login failed');
       }
@@ -46,79 +91,135 @@ function App() {
     }
   };
 
-  const handleAddList = () => {
+  const handleLogout = () => {
+    setLoggedIn(false);
+    setUserId(null);
+    setUserLists({});
+    setCurrentList('');
+    setUsername('');
+    setPassword('');
+  };
+
+  const handleAddList = async () => {
     if (newListName && loggedIn) {
-      const user = username;
-      if (!userLists[user]) {
-        userLists[user] = {};
+      try {
+        const response = await axios.post('http://localhost:3001/addList', { userId, listName: newListName });
+        if (response.data) {
+          const newList = { name: newListName, items: [] };
+          setUserLists({ ...userLists, [response.data.inventoryId]: newList });
+          setNewListName('');
+        }
+      } catch (error) {
+        console.error('Error adding list:', error.response ? error.response.data : error.message);
       }
-      userLists[user][newListName] = [];
-      setUserLists({ ...userLists });
-      setNewListName('');
     }
   };
 
-  const handleAddItem = (listName, newItem) => {
+  const handleAddItem = async (listId, newItem) => {
     if (newItem && loggedIn) {
-      const user = username;
-      const newItemObj = {
-        name: newItem,
-        quantity: 1,
-        active: true
-      };
-      userLists[user][listName] = [...userLists[user][listName], newItemObj];
-      setUserLists({ ...userLists });
-      setNewItem('');
+      try {
+        const response = await axios.post('http://localhost:3001/addItem', { listId, itemName: newItem, quantity: 1 });
+        if (response.data) {
+          const newItemObj = { id: response.data.itemId, name: newItem, quantity: 1, active: true };
+          setUserLists(prevState => ({
+            ...prevState,
+            [listId]: { ...prevState[listId], items: [...prevState[listId].items, newItemObj] }
+          }));
+          setNewItem('');
+        }
+      } catch (error) {
+        console.error('Error adding item:', error.response ? error.response.data : error.message);
+      }
     }
   };
 
-  const handleDeleteItem = (listName, index) => {
+  const handleDeleteItem = async (listId, itemId) => {
     if (loggedIn) {
-      const user = username;
-      userLists[user][listName] = userLists[user][listName].filter((item, i) => i !== index);
-      setUserLists({ ...userLists });
+      try {
+        await axios.delete('http://localhost:3001/deleteItem', { data: { itemId } });
+        setUserLists(prevState => ({
+          ...prevState,
+          [listId]: { ...prevState[listId], items: prevState[listId].items.filter(item => item.id !== itemId) }
+        }));
+      } catch (error) {
+        console.error('Error deleting item:', error.response ? error.response.data : error.message);
+      }
     }
   };
 
-  const handleToggleItem = (listName, index) => {
+  const handleToggleItem = async (listId, index) => {
     if (loggedIn) {
-      const user = username;
-      userLists[user][listName][index].active = !userLists[user][listName][index].active;
-      setUserLists({ ...userLists });
+      const items = [...userLists[listId].items];
+      const item = items[index];
+      item.active = !item.active;
+      try {
+        await axios.put('http://localhost:3001/updateItem', { itemId: item.id, quantity: item.quantity, active: item.active });
+        setUserLists(prevState => ({
+          ...prevState,
+          [listId]: { ...prevState[listId], items }
+        }));
+      } catch (error) {
+        console.error('Error toggling item:', error.response ? error.response.data : error.message);
+      }
     }
   };
 
-  const handleQuantityChange = (listName, index, quantity) => {
-    if (loggedIn) {
-      const user = username;
-      userLists[user][listName][index].quantity = quantity;
-      setUserLists({ ...userLists });
+  const handleQuantityChange = (listId, index, quantity) => {
+    const items = [...userLists[listId].items];
+    const item = items[index];
+    item.quantity = quantity;
+    setUserLists(prevState => ({
+      ...prevState,
+      [listId]: { ...prevState[listId], items }
+    }));
+  };
+
+  const handleQuantityBlur = async (listId, index) => {
+    const item = userLists[listId].items[index];
+    try {
+      await axios.put('http://localhost:3001/updateItem', { itemId: item.id, quantity: item.quantity, active: item.active });
+      fetchListItems(listId); // アイテムを再フェッチして更新を反映
+    } catch (error) {
+      console.error('Error updating item quantity:', error.response ? error.response.data : error.message);
     }
   };
 
-  const handleDeleteList = (listName) => {
+  const handleDeleteList = async (listId) => {
     if (loggedIn) {
-      const user = username;
-      if (window.confirm(`リスト "${listName}" を削除しますか？`)) {
-        const updatedUserLists = { ...userLists };
-        delete updatedUserLists[user][listName];
-        setUserLists(updatedUserLists);
-        setCurrentList('');
+      if (window.confirm(`リスト "${userLists[listId].name}" を削除しますか？`)) {
+        try {
+          await axios.delete('http://localhost:3001/deleteList', { data: { listId } });
+          const updatedUserLists = { ...userLists };
+          delete updatedUserLists[listId];
+          setUserLists(updatedUserLists);
+          setCurrentList('');
+        } catch (error) {
+          console.error('Error deleting list:', error.response ? error.response.data : error.message);
+        }
       }
     }
   };
 
   const handleEditItem = (index) => {
     setEditIndex(index);
-    setEditedName(userLists[username][currentList][index].name);
+    setEditedName(userLists[currentList].items[index].name);
   };
 
-  const handleRenameItem = (listName, index) => {
+  const handleRenameItem = async (listId, index) => {
     if (loggedIn) {
-      const user = username;
-      userLists[user][listName][index].name = editedName;
-      setUserLists({ ...userLists });
-      setEditIndex(-1);
+      const items = [...userLists[listId].items];
+      const item = items[index];
+      item.name = editedName;
+      try {
+        await axios.put('http://localhost:3001/updateItem', { itemId: item.id, quantity: item.quantity, active: item.active });
+        setUserLists(prevState => ({
+          ...prevState,
+          [listId]: { ...prevState[listId], items }
+        }));
+        setEditIndex(-1);
+      } catch (error) {
+        console.error('Error renaming item:', error.response ? error.response.data : error.message);
+      }
     }
   };
 
@@ -131,11 +232,11 @@ function App() {
       <CssBaseline />
       <Router>
         <div id="root">
-          <Header loggedIn={loggedIn} handleLogout={() => setLoggedIn(false)} handleLogin={handleLogin} username={username} currentList={currentList} />
+          <Header loggedIn={loggedIn} handleLogout={handleLogout} username={username} currentList={currentList} userLists={userLists} />
           <div style={{ display: 'flex' }} className="main-content">
             {loggedIn && (
               <Menu
-                lists={Object.keys(userLists[username] || {})}
+                lists={Object.keys(userLists).map(listId => ({ id: listId, name: userLists[listId].name }))}
                 currentList={currentList}
                 setCurrentList={setCurrentList}
                 newListName={newListName}
@@ -168,9 +269,9 @@ function App() {
                             追加
                           </Button>
                           <List style={{ marginTop: '2em' }}>
-                            {(userLists[username][currentList] || []).map((item, index) => (
+                            {(userLists[currentList]?.items || []).map((item, index) => (
                               <ListItem
-                                key={index}
+                                key={item.id}
                                 style={{ opacity: item.active ? 1 : 0.5 }}
                                 secondaryAction={
                                   editIndex === index ? (
@@ -196,14 +297,15 @@ function App() {
                                       <IconButton edge="end" style={{ marginRight: '0.2em', color: '#060f3e' }} aria-label="edit" onClick={() => handleEditItem(index)}>
                                         <EditIcon />
                                       </IconButton>
-                                      <IconButton edge="end" style={{ marginRight: '0.2em', color: '#060f3e' }} aria-label="delete" onClick={() => handleDeleteItem(currentList, index)}>
+                                      <IconButton edge="end" style={{ marginRight: '0.2em', color: '#060f3e' }} aria-label="delete" onClick={() => handleDeleteItem(currentList, item.id)}>
                                         <DeleteIcon />
                                       </IconButton>
                                       <TextField
                                         type="number"
-                                        value={item.quantity}
+                                        value={item.quantity !== undefined ? item.quantity : ''}
                                         size='small'
                                         onChange={(e) => handleQuantityChange(currentList, index, parseInt(e.target.value))}
+                                        onBlur={() => handleQuantityBlur(currentList, index)}
                                         style={{ width: '60px', marginRight: '1em' }}
                                       />
                                     </>
