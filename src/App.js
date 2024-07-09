@@ -120,7 +120,7 @@ function App() {
       try {
         const response = await axios.post('http://localhost:3001/addItem', { listId, itemName: newItem, quantity: 1 });
         if (response.data) {
-          const newItemObj = { id: response.data.itemId, name: newItem, quantity: 1, active: true };
+          const newItemObj = { id: response.data.itemId, name: newItem, stock: 1, active: true };
           setUserLists(prevState => ({
             ...prevState,
             [listId]: { ...prevState[listId], items: [...prevState[listId].items, newItemObj] }
@@ -153,7 +153,7 @@ function App() {
       const item = items[index];
       item.active = !item.active;
       try {
-        await axios.put('http://localhost:3001/updateItem', { itemId: item.id, quantity: item.quantity, active: item.active });
+        await axios.put('http://localhost:3001/updateItem', { itemId: item.id, quantity: item.stock, active: item.active });
         setUserLists(prevState => ({
           ...prevState,
           [listId]: { ...prevState[listId], items }
@@ -167,7 +167,7 @@ function App() {
   const handleQuantityChange = (listId, index, quantity) => {
     const items = [...userLists[listId].items];
     const item = items[index];
-    item.quantity = quantity;
+    item.stock = quantity;
     setUserLists(prevState => ({
       ...prevState,
       [listId]: { ...prevState[listId], items }
@@ -177,7 +177,7 @@ function App() {
   const handleQuantityBlur = async (listId, index) => {
     const item = userLists[listId].items[index];
     try {
-      await axios.put('http://localhost:3001/updateItem', { itemId: item.id, quantity: item.quantity, active: item.active });
+      await axios.put('http://localhost:3001/updateItem', { itemId: item.id, quantity: item.stock, active: item.active });
       fetchListItems(listId); // アイテムを再フェッチして更新を反映
     } catch (error) {
       console.error('Error updating item quantity:', error.response ? error.response.data : error.message);
@@ -211,7 +211,7 @@ function App() {
       const item = items[index];
       item.name = editedName;
       try {
-        await axios.put('http://localhost:3001/updateItem', { itemId: item.id, quantity: item.quantity, active: item.active });
+        await axios.put('http://localhost:3001/updateItem', { itemId: item.id, quantity: item.stock, active: item.active });
         setUserLists(prevState => ({
           ...prevState,
           [listId]: { ...prevState[listId], items }
@@ -302,7 +302,7 @@ function App() {
                                       </IconButton>
                                       <TextField
                                         type="number"
-                                        value={item.quantity !== undefined ? item.quantity : ''}
+                                        value={item.stock !== undefined ? item.stock : ''}
                                         size='small'
                                         onChange={(e) => handleQuantityChange(currentList, index, parseInt(e.target.value))}
                                         onBlur={() => handleQuantityBlur(currentList, index)}
